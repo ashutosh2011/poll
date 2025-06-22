@@ -1,15 +1,17 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Plus, Play } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Users, Plus, Play, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Index = () => {
   const [sessionCode, setSessionCode] = useState('');
   const [nickname, setNickname] = useState('');
+  const [passphrase, setPassphrase] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleJoinQuiz = () => {
@@ -19,8 +21,24 @@ const Index = () => {
   };
 
   const handleCreateQuiz = () => {
-    toast.success('Currently not available');
-    // navigate('/create');
+    setIsDialogOpen(true);
+  };
+
+  const handlePassphraseSubmit = () => {
+    if (passphrase === 'ashutoshismypapa') {
+      setIsDialogOpen(false);
+      setPassphrase('');
+      navigate('/create');
+    } else {
+      toast.error('Incorrect passphrase');
+      setPassphrase('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handlePassphraseSubmit();
+    }
   };
 
   return (
@@ -91,7 +109,7 @@ const Index = () => {
                 onClick={handleCreateQuiz}
                 className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 rounded-xl transition-all duration-300"
               >
-                <Plus className="w-5 h-5 mr-2" />
+                <Lock className="w-5 h-5 mr-2" />
                 Create New Quiz
               </Button>
             </CardContent>
@@ -104,6 +122,36 @@ const Index = () => {
           </p>
         </div>
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogTrigger className="hidden">
+          {/* This is a hidden trigger, actual trigger is the button above */}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Enter passphrase</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right">
+                passphrase
+              </label>
+              <Input
+                id="passphrase"
+                value={passphrase}
+                onKeyDown={handleKeyPress}
+                onChange={(e) => setPassphrase(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" onClick={handlePassphraseSubmit}>
+              Submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
