@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+websockets
+python-multipart
+jinja2
+chartjs
+pymongo
+motor
+python-dotenv
+pandas
+openpyxl
+pymongo[srv]

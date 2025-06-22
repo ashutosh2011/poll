@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Questions - Quiz App</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .upload-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .upload-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .upload-header h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .upload-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+        
+        .upload-section:hover {
+            border-color: #007bff;
+        }
+        
+        .upload-section.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 10px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+        
+        .template-btn {
+            background: #28a745;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s ease;
+        }
+        
+        .template-btn:hover {
+            background: #1e7e34;
+        }
+        
+        .file-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+            display: none;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .result-message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .result-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .result-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .error-list {
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+        }
+        
+        .error-item {
+            color: #721c24;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .format-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .format-info h3 {
+            color: #0056b3;
+            margin-top: 0;
+        }
+        
+        .format-info ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+        
+        .format-info li {
+            margin-bottom: 0.25rem;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-top: 2rem;
+        }
+        
+        .nav-links a {
+            color: #007bff;
+            text-decoration: none;
+            margin: 0 1rem;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <div class="upload-header">
+            <h1>📤 Upload Questions</h1>
+            <p>Upload questions in bulk using CSV or Excel files</p>
+        </div>
+        
+        <div class="format-info">
+            <h3>📋 File Format Requirements</h3>
+            <ul>
+                <li><strong>Required columns:</strong> Question, Option1, Option2, Option3, Option4, CorrectAnswer</li>
+                <li><strong>Optional column:</strong> Tags (comma-separated)</li>
+                <li><strong>Supported formats:</strong> CSV (.csv), Excel (.xlsx, .xls)</li>
+                <li><strong>Correct Answer:</strong> Must match exactly one of the four options</li>
+                <li><strong>Tags:</strong> Comma-separated values (e.g., "math,algebra,equations")</li>
+            </ul>
+        </div>
+        
+        <div class="upload-section" id="uploadSection">
+            <h3>Choose your file</h3>
+            <p>Drag and drop your CSV or Excel file here, or click to browse</p>
+            
+            <input type="file" id="fileInput" class="file-input" accept=".csv,.xlsx,.xls">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                📁 Browse Files
+            </button>
+            <a href="/api/download-template" class="template-btn">
+                📥 Download Template
+            </a>
+            
+            <div class="file-info" id="fileInfo"></div>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        
+        <div class="result-message" id="resultMessage"></div>
+        
+        <div class="nav-links">
+            <a href="/question-bank">← Back to Question Bank</a>
+            <a href="/create">Create Quiz</a>
+            <a href="/">Home</a>
+        </div>
+    </div>
+
+    <script>
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const resultMessage = document.getElementById('resultMessage');
+
+        // Drag and drop functionality
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            // Validate file type
+            const validTypes = ['.csv', '.xlsx', '.xls'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!validTypes.includes(fileExtension)) {
+                showResult('Please select a valid CSV or Excel file.', 'error');
+                return;
+            }
+
+            // Show file info
+            fileInfo.style.display = 'block';
+            fileInfo.innerHTML = `
+                <strong>Selected file:</strong> ${file.name}<br>
+                <strong>Size:</strong> ${(file.size / 1024).toFixed(2)} KB<br>
+                <strong>Type:</strong> ${file.type || 'Unknown'}
+            `;
+
+            // Upload file
+            uploadFile(file);
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show progress bar
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+
+            try {
+                // Simulate progress
+                const progressInterval = setInterval(() => {
+                    const currentWidth = parseInt(progressFill.style.width) || 0;
+                    if (currentWidth < 90) {
+                        progressFill.style.width = (currentWidth + 10) + '%';
+                    }
+                }, 200);
+
+                const response = await fetch('/api/upload-questions', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(result.message, 'success');
+                    
+                    if (result.errors && result.errors.length > 0) {
+                        const errorList = document.createElement('div');
+                        errorList.className = 'error-list';
+                        errorList.innerHTML = '<h4>Errors:</h4>';
+                        result.errors.forEach(error => {
+                            errorList.innerHTML += `<div class="error-item">• ${error}</div>`;
+                        });
+                        resultMessage.appendChild(errorList);
+                    }
+                } else {
+                    showResult(result.detail || 'Upload failed.', 'error');
+                }
+
+            } catch (error) {
+                progressFill.style.width = '100%';
+                showResult('Upload failed. Please try again.', 'error');
+                console.error('Upload error:', error);
+            }
+
+            // Hide progress bar after a delay
+            setTimeout(() => {
+                progressBar.style.display = 'none';
+            }, 2000);
+        }
+
+        function showResult(message, type) {
+            resultMessage.style.display = 'block';
+            resultMessage.className = `result-message result-${type}`;
+            resultMessage.innerHTML = message;
+        }
+    </script>
+</body>
+</html> 

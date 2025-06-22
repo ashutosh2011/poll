@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presenter View</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Lobby View -->
+        <div id="lobby-view">
+            <h2>Get Ready! Join the Quiz at:</h2>
+            <p style="font-size: 24px; font-weight: bold;">[Your Website URL]</p>
+            <h1>Session Code: <span id="session-code" style="color: #007bff;"></span></h1>
+            <h3>Players Joined: <span id="player-count">0</span></h3>
+            <ul id="player-list"></ul>
+            <button id="start-quiz-btn" class="btn">Start Quiz</button>
+        </div>
+
+        <!-- Question View -->
+        <div id="question-view" class="hidden">
+            <h2 id="question-text"></h2>
+            <div id="presenter-options"></div>
+            <button id="show-results-btn" class="btn">Show Results</button>
+        </div>
+
+        <!-- Results View -->
+        <div id="results-view" class="hidden">
+            <h2 id="results-question-text"></h2>
+            <div id="results-bars"></div>
+            <button id="show-leaderboard-btn" class="btn">Show Leaderboard</button>
+        </div>
+
+        <!-- Leaderboard View -->
+        <div id="leaderboard-view" class="hidden">
+            <h2>Leaderboard</h2>
+            <ol id="leaderboard-list"></ol>
+            <button id="next-question-btn" class="btn">Next Question</button>
+            <button id="end-quiz-btn" class="btn btn-danger">End Quiz</button>
+        </div>
+
+        <!-- Finished View -->
+        <div id="finished-view" class="hidden">
+            <h1>Quiz Over!</h1>
+            <h2>Final Leaderboard</h2>
+            <ol id="final-leaderboard-list"></ol>
+            <div class="button-group">
+                <a href="create.html" class="btn">Create a New Quiz</a>
+                <a href="index.html" class="btn">🏠 Go Home</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        const firebaseConfig = {
+        };
+
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const params = new URLSearchParams(window.location.search);
+        const sessionCode = params.get('session');
+        if (!sessionCode) {
+            document.body.innerHTML = '<h1>No session code provided.</h1>';
+        }
+
+        const sessionRef = db.collection('sessions').doc(sessionCode);
+
+        // UI Elements
+        const views = {
+            lobby: document.getElementById('lobby-view'),
+            question: document.getElementById('question-view'),
+            results: document.getElementById('results-view'),
+            leaderboard: document.getElementById('leaderboard-view'),
+            finished: document.getElementById('finished-view')
+        };
+        
+        let currentSessionData = {};
+
+        // Listen for real-time updates to the session
+        sessionRef.onSnapshot(doc => {
+            if (!doc.exists) {
+                console.error("Session not found!");
+                return;
+            }
+            currentSessionData = doc.data();
+            updateUI(currentSessionData);
+        });
+        
+        function updateUI(data) {
+            // Hide all views first
+            Object.values(views).forEach(view => view.classList.add('hidden'));
+            
+            // Show the correct view based on state
+            if (views[data.state]) {
+                views[data.state].classList.remove('hidden');
+            }
+
+            const currentQuestion = data.questions[data.currentQuestionIndex];
+
+            switch (data.state) {
+                case 'lobby':
+                    document.getElementById('session-code').textContent = sessionCode;
+                    const players = Object.values(data.players || {});
+                    document.getElementById('player-count').textContent = players.length;
+                    const playerList = document.getElementById('player-list');
+                    playerList.innerHTML = players.map(p => `<li>${p.name}</li>`).join('');
+                    break;
+                case 'question':
+                    document.getElementById('question-text').textContent = currentQuestion.text;
+                    break;
+                case 'results':
+                    renderResults(currentQuestion);
+                    break;
+                case 'leaderboard':
+                    renderLeaderboard(data.players, 'leaderboard-list');
+                    const isLastQuestion = data.currentQuestionIndex >= data.questions.length - 1;
+                    document.getElementById('next-question-btn').classList.toggle('hidden', isLastQuestion);
+                    document.getElementById('end-quiz-btn').classList.toggle('hidden', !isLastQuestion);
+                    break;
+                case 'finished':
+                     renderLeaderboard(data.players, 'final-leaderboard-list');
+                     break;
+            }
+        }
+        
+        function renderResults(question) {
+            document.getElementById('results-question-text').textContent = question.text;
+            const resultsBars = document.getElementById('results-bars');
+            resultsBars.innerHTML = '';
+            
+            const totalVotes = Object.values(question.votes).reduce((sum, count) => sum + count, 0);
+
+            question.options.forEach((option, index) => {
+                const voteCount = question.votes[index] || 0;
+                const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'result-bar-container';
+
+                const label = document.createElement('div');
+                label.className = 'result-label';
+                label.textContent = option;
+                
+                const bar = document.createElement('div');
+                bar.className = 'result-bar';
+                if (index === question.correctAnswerIndex) {
+                    bar.classList.add('correct');
+                }
+                bar.style.width = `${percentage}%`;
+                bar.textContent = `${voteCount} votes`;
+                
+                barContainer.appendChild(label);
+                barContainer.appendChild(bar);
+                resultsBars.appendChild(barContainer);
+            });
+        }
+
+        function renderLeaderboard(players, listId) {
+            const leaderboardList = document.getElementById(listId);
+            const sortedPlayers = Object.values(players || {}).sort((a, b) => b.score - a.score);
+            leaderboardList.innerHTML = sortedPlayers.map(p => `<li><span>${p.name}</span><span>${p.score} pts</span></li>`).join('');
+        }
+
+        // --- Event Listeners for Presenter Controls ---
+        document.getElementById('start-quiz-btn').onclick = () => {
+            sessionRef.update({ state: 'question', currentQuestionIndex: 0 });
+        };
+        document.getElementById('show-results-btn').onclick = () => {
+            sessionRef.update({ state: 'results' });
+        };
+        document.getElementById('show-leaderboard-btn').onclick = () => {
+            sessionRef.update({ state: 'leaderboard' });
+        };
+        document.getElementById('next-question-btn').onclick = () => {
+            sessionRef.update({ 
+                state: 'question', 
+                currentQuestionIndex: currentSessionData.currentQuestionIndex + 1 
+            });
+        };
+        document.getElementById('end-quiz-btn').onclick = () => {
+            sessionRef.update({ state: 'finished' });
+        };
+
+    </script>
+</body>
+</html>

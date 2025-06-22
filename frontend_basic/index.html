@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Quiz</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Join View -->
+        <div id="join-view">
+            <h1>Join a Live Quiz</h1>
+            <input type="text" id="name" placeholder="Enter your name">
+            <input type="text" id="session-code" placeholder="Enter session code" style="text-transform:uppercase">
+            <button class="btn" onclick="joinSession()">Join</button>
+        </div>
+
+        <!-- Play View -->
+        <div id="play-view" class="hidden">
+            <h2 id="status-text">Waiting for quiz to start...</h2>
+            <h2 id="question-text" class="hidden"></h2>
+            <div id="options-container"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        const firebaseConfig = {
+        };
+        
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let sessionRef;
+    let unsubscribe; 
+    let playerId = `player_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // --- State variables to track what this player is seeing ---
+    let currentQuizState = '';
+    let currentQuestionIndex = -1;
+
+    const joinView = document.getElementById('join-view');
+    const playView = document.getElementById('play-view');
+    const statusText = document.getElementById('status-text');
+    const questionText = document.getElementById('question-text');
+    const optionsContainer = document.getElementById('options-container');
+
+    async function joinSession() {
+        const name = document.getElementById('name').value;
+        const sessionCode = document.getElementById('session-code').value.toUpperCase();
+        if (!name || !sessionCode) {
+            alert('Please enter your name and a session code.');
+            return;
+        }
+
+        sessionRef = db.collection('sessions').doc(sessionCode);
+        const doc = await sessionRef.get();
+
+        if (!doc.exists) {
+            alert('Session not found. Please check the code.');
+            return;
+        }
+
+        await sessionRef.update({
+            [`players.${playerId}`]: { name, score: 0 }
+        });
+        
+        joinView.classList.add('hidden');
+        playView.classList.remove('hidden');
+
+        listenToSession();
+    }
+
+    function listenToSession() {
+        unsubscribe = sessionRef.onSnapshot(doc => {
+            if (!doc.exists) { return; }
+            const data = doc.data();
+
+            // --- THE FINAL, ROBUST FIX ---
+            // Check if a redraw is actually necessary.
+            // Has the quiz state or the question number changed?
+            const quizStateChanged = data.state !== currentQuizState;
+            const questionChanged = data.currentQuestionIndex !== currentQuestionIndex;
+
+            // If nothing important changed (e.g. just another player's vote), do nothing.
+            if (!quizStateChanged && !questionChanged) {
+                return; 
+            }
+            
+            // If we are here, something important *did* change. Update our local trackers.
+            currentQuizState = data.state;
+            currentQuestionIndex = data.currentQuestionIndex;
+            // --- END OF THE FIX ---
+            
+            // Now, we can safely update the UI based on the new state.
+            statusText.classList.remove('hidden');
+            questionText.classList.add('hidden');
+            optionsContainer.innerHTML = '';
+
+            switch (data.state) {
+                case 'lobby':
+                    statusText.textContent = 'Waiting for the presenter to start the quiz...';
+                    break;
+                case 'question':
+                    const qIndex = data.currentQuestionIndex;
+                    if (qIndex >= 0 && data.questions && data.questions[qIndex]) {
+                        const currentQuestion = data.questions[qIndex];
+                        statusText.classList.add('hidden');
+                        questionText.classList.remove('hidden');
+                        questionText.textContent = currentQuestion.text;
+                        renderOptions(currentQuestion, qIndex);
+                    }
+                    break;
+                case 'results':
+                    statusText.textContent = 'Check the main screen for results!';
+                    break;
+                case 'leaderboard':
+                    statusText.textContent = 'Check the main screen for the leaderboard!';
+                    break;
+                case 'finished':
+                    statusText.textContent = 'The quiz is over. Thanks for playing!';
+                    optionsContainer.innerHTML = '<a href="index.html" class="btn">🏠 Go Home</a>';
+                    if (unsubscribe) unsubscribe();
+                    break;
+            }
+        });
+    }
+    
+    function renderOptions(question, questionIndex) {
+        optionsContainer.innerHTML = ''; // Clear previous options just in case
+        question.options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = 'btn btn-secondary';
+            button.textContent = option;
+            button.onclick = () => submitAnswer(index, question.correctAnswerIndex, questionIndex);
+            optionsContainer.appendChild(button);
+        });
+    }
+
+    async function submitAnswer(selectedIndex, correctIndex, questionIndex) {
+        // When a player submits, we just update the buttons and firebase.
+        // We no longer need the 'hasAnswered' flag because the main listener won't redraw.
+        optionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        
+        let scoreUpdate = 0;
+        if (selectedIndex === correctIndex) {
+            scoreUpdate = 10;
+            optionsContainer.children[selectedIndex].style.backgroundColor = '#28a745';
+        } else {
+            optionsContainer.children[selectedIndex].style.backgroundColor = '#dc3545';
+            if (optionsContainer.children[correctIndex]) {
+                optionsContainer.children[correctIndex].style.backgroundColor = '#28a745'; 
+            }
+        }
+        
+        statusText.classList.remove('hidden');
+        statusText.textContent = 'Your answer is submitted! Waiting...';
+        
+        const voteUpdate = firebase.firestore.FieldValue.increment(1);
+        const scoreIncrement = firebase.firestore.FieldValue.increment(scoreUpdate);
+
+        const votePath = `questions.${questionIndex}.votes.${selectedIndex}`;
+        const scorePath = `players.${playerId}.score`;
+        
+        await sessionRef.update({
+            [votePath]: voteUpdate,
+            [scorePath]: scoreIncrement
+        });
+    }
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Bank</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Question Bank</h1>
+            <div class="header-buttons">
+                <a href="/upload-questions" class="button-link">📤 Upload Questions</a>
+                <a href="/create" class="button-link">Create New Quiz</a>
+            </div>
+        </header>
+
+        <div class="card">
+            <h2>Add New Question</h2>
+            <form action="/api/question-bank/add" method="post">
+                <div class="form-group">
+                    <label for="question-text">Question Text</label>
+                    <input type="text" id="question-text" name="question_text" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Options & Correct Answer</label>
+                    <div class="options-group">
+                        <input type="radio" name="correct_answer" value="" required>
+                        <input type="text" name="option1" placeholder="Option 1" required oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                    <div class="options-group">
+                        <input type="radio" name="correct_answer" value="">
+                        <input type="text" name="option2" placeholder="Option 2" required oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                    <div class="options-group">
+                        <input type="radio" name="correct_answer" value="">
+                        <input type="text" name="option3" placeholder="Option 3" required oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                    <div class="options-group">
+                        <input type="radio" name="correct_answer" value="">
+                        <input type="text" name="option4" placeholder="Option 4" required oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="tags">Tags (comma-separated)</label>
+                    <input type="text" id="tags" name="tags" placeholder="e.g., math, algebra, equations">
+                    <small>Add tags to categorize your question (e.g., subject, topic, difficulty)</small>
+                </div>
+
+                <button type="submit">Add to Bank</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Existing Questions</h2>
+            
+            <!-- Tag Filter -->
+            <div class="tag-filter">
+                <h3>Filter by Tags</h3>
+                <div class="tag-buttons">
+                    <button type="button" class="tag-btn active" data-tag="">All Questions</button>
+                    {% for tag in tags %}
+                    <button type="button" class="tag-btn" data-tag="{{ tag }}">{{ tag }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div id="question-list">
+                {% if questions %}
+                    {% for q in questions %}
+                    <div class="question-item" data-tags="{{ q.tags|join(',') }}">
+                        <p><strong>Q:</strong> {{ q.text }}</p>
+                        <ul>
+                            {% for opt in q.options %}
+                                <li>{{ opt }} {% if opt == q.correct_answer %}<strong>(Correct)</strong>{% endif %}</li>
+                            {% endfor %}
+                        </ul>
+                        {% if q.tags %}
+                        <div class="question-tags">
+                            <strong>Tags:</strong>
+                            {% for tag in q.tags %}
+                            <span class="tag">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <form action="/api/question-bank/delete/{{ q.hash }}" method="post" style="display: inline;">
+                            <button type="submit" class="delete-button">Delete</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No questions in the bank yet. Add one above!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Tag filtering functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tagButtons = document.querySelectorAll('.tag-btn');
+            const questionItems = document.querySelectorAll('.question-item');
+            
+            tagButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const selectedTag = this.getAttribute('data-tag');
+                    
+                    // Update active button
+                    tagButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter questions
+                    questionItems.forEach(item => {
+                        const itemTags = item.getAttribute('data-tags');
+                        if (!selectedTag || itemTags.includes(selectedTag)) {
+                            item.style.display = 'block';
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

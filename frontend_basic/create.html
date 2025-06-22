@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Quiz</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Create Your Live Quiz</h1>
+        
+        <div id="quiz-builder">
+            <div id="question-form">
+                <input type="text" id="question-text" placeholder="Enter your question">
+                <div id="options-form">
+                    <input type="text" class="option-input" placeholder="Option 1 (Correct Answer)">
+                    <input type="text" class="option-input" placeholder="Option 2">
+                </div>
+                <button class="btn btn-secondary" onclick="addOption()">Add Another Option</button>
+                <hr>
+                <button class="btn" onclick="addQuestion()">Add Question to Quiz</button>
+            </div>
+        </div>
+
+        <div id="quiz-summary">
+            <h2>Quiz Questions</h2>
+            <ul id="questions-list"></ul>
+            <button class="btn btn-danger" onclick="createQuiz()" id="create-quiz-btn" disabled>Create Quiz & Get Code</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        // PASTE YOUR FIREBASE CONFIGURATION OBJECT HERE
+        const firebaseConfig = {
+        };
+
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const quizData = { questions: [] };
+
+        function addOption() {
+            const optionsDiv = document.getElementById('options-form');
+            const newOption = document.createElement('input');
+            newOption.type = 'text';
+            newOption.className = 'option-input';
+            newOption.placeholder = `Option ${optionsDiv.children.length + 1}`;
+            optionsDiv.appendChild(newOption);
+        }
+
+        function addQuestion() {
+            const questionText = document.getElementById('question-text').value;
+            if (!questionText) {
+                alert('Please enter a question.');
+                return;
+            }
+
+            const optionInputs = document.querySelectorAll('.option-input');
+            const options = Array.from(optionInputs).map(input => input.value).filter(val => val);
+            
+            if (options.length < 2) {
+                alert('Please provide at least two options.');
+                return;
+            }
+
+            const question = {
+                text: questionText,
+                options: options,
+                correctAnswerIndex: 0, // First option is always the correct one in this simple setup
+                votes: options.reduce((acc, _, index) => ({...acc, [index]: 0 }), {})
+            };
+
+            quizData.questions.push(question);
+            updateQuestionsList();
+            resetQuestionForm();
+            document.getElementById('create-quiz-btn').disabled = false;
+        }
+
+        function updateQuestionsList() {
+            const list = document.getElementById('questions-list');
+            list.innerHTML = '';
+            quizData.questions.forEach((q, index) => {
+                const li = document.createElement('li');
+                li.textContent = `${index + 1}. ${q.text}`;
+                list.appendChild(li);
+            });
+        }
+
+        function resetQuestionForm() {
+            document.getElementById('question-text').value = '';
+            const optionsDiv = document.getElementById('options-form');
+            optionsDiv.innerHTML = `
+                <input type="text" class="option-input" placeholder="Option 1 (Correct Answer)">
+                <input type="text" class="option-input" placeholder="Option 2">
+            `;
+        }
+
+        async function createQuiz() {
+            if (quizData.questions.length === 0) {
+                alert('Add at least one question before creating the quiz.');
+                return;
+            }
+
+            const sessionCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const sessionData = {
+                ...quizData,
+                state: 'lobby', // lobby, question, results, leaderboard, finished
+                currentQuestionIndex: -1,
+                players: {}
+            };
+
+            try {
+                await db.collection('sessions').doc(sessionCode).set(sessionData);
+                window.location.href = `presenter.html?session=${sessionCode}`;
+            } catch (error) {
+                console.error("Error creating quiz: ", error);
+                alert('Could not create quiz. Check console for errors.');
+            }
+        }
+    </script>
+</body>
+</html>

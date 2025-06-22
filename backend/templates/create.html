@@ -1,0 +1,183 @@
+<!-- templates/create.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create a Quiz</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .question-block, .question-bank-item {
+            border: 1px solid #ccc;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .option-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .option-input-group input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        .option-input-group input[type="text"] {
+            flex-grow: 1;
+        }
+        .question-bank-item ul {
+            list-style-type: none;
+            padding-left: 1rem;
+            color: #555;
+        }
+        .quiz-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create a New Quiz</h1>
+        <p>Build your quiz by selecting questions from your bank, adding new ones manually, or both.</p>
+        
+        <form action="/api/create_quiz" method="post" id="quiz-form">
+            
+            <!-- Quiz Information -->
+            <div class="quiz-info">
+                <h2>Quiz Information</h2>
+                <div class="form-group">
+                    <label for="quiz_name">Quiz Name:</label>
+                    <input type="text" id="quiz_name" name="quiz_name" placeholder="e.g., Science Quiz, Math Challenge, etc." required>
+                </div>
+                <div class="form-group">
+                    <label for="timer">Time per Question (seconds):</label>
+                    <input type="number" id="timer" name="timer" min="5" max="120" value="30" required>
+                </div>
+            </div>
+            
+            <!-- Question Bank Section -->
+            <div class="card">
+                <h2>Select from Question Bank</h2>
+                <a href="/question-bank" class="button-link">Manage Bank</a>
+                <div id="question-bank-list">
+                    {% if question_bank %}
+                        {% for q in question_bank %}
+                        <div class="question-bank-item">
+                            <label>
+                                <input type="checkbox" name="question_bank_ids" value="{{ q.hash }}">
+                                <strong>{{ q.text }}</strong>
+                            </label>
+                            <ul>
+                                {% for opt in q.options %}
+                                    <li>- {{ opt }} {% if opt == q.correct_answer %}<em>(Correct)</em>{% endif %}</li>
+                                {% endfor %}
+                            </ul>
+                            {% if q.tags %}
+                            <div class="question-tags">
+                                <strong>Tags:</strong>
+                                {% for tag in q.tags %}
+                                <span class="tag">{{ tag }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p>Your question bank is empty. <a href="/question-bank">Add some questions!</a></p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Manual Question Entry -->
+            <h2>Add New Questions Manually</h2>
+            <div id="questions-container">
+                <!-- Dynamic questions will be added here -->
+            </div>
+            <button type="button" id="add-question" class="button">Add a Manual Question</button>
+            <hr>
+            <input type="submit" value="Create Quiz and Get Code">
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const questionsContainer = document.getElementById('questions-container');
+            const addQuestionBtn = document.getElementById('add-question');
+            
+            function addNewQuestionBlock() {
+                const questionCounter = questionsContainer.children.length + 1;
+                const newQuestionBlock = document.createElement('div');
+                newQuestionBlock.classList.add('question-block');
+                newQuestionBlock.setAttribute('data-question-id', questionCounter);
+                newQuestionBlock.innerHTML = `
+                    <div class="question-header">
+                        <h3>Manual Question ${questionCounter}</h3>
+                        <button type="button" class="remove-question button-secondary">Remove</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="question_${questionCounter}">Question Text:</label>
+                        <input type="text" id="question_${questionCounter}" name="questions" placeholder="e.g., What has an eye but cannot see?" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Options (select the correct one):</label>
+                         <div class="option-input-group">
+                            <input type="radio" name="correct_answer_q${questionCounter}" value="" required checked>
+                            <input type="text" name="options" placeholder="Option 1" required oninput="this.previousElementSibling.value = this.value">
+                        </div>
+                        <div class="option-input-group">
+                            <input type="radio" name="correct_answer_q${questionCounter}" value="">
+                            <input type="text" name="options" placeholder="Option 2" required oninput="this.previousElementSibling.value = this.value">
+                        </div>
+                        <div class="option-input-group">
+                            <input type="radio" name="correct_answer_q${questionCounter}" value="">
+                            <input type="text" name="options" placeholder="Option 3" required oninput="this.previousElementSibling.value = this.value">
+                        </div>
+                        <div class="option-input-group">
+                            <input type="radio" name="correct_answer_q${questionCounter}" value="">
+                            <input type="text" name="options" placeholder="Option 4" required oninput="this.previousElementSibling.value = this.value">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tags_${questionCounter}">Tags (comma-separated):</label>
+                        <input type="text" id="tags_${questionCounter}" name="manual_tags" placeholder="e.g., math, algebra, equations">
+                        <small>Add tags to categorize your question</small>
+                    </div>
+                `;
+                questionsContainer.appendChild(newQuestionBlock);
+                renumberManualQuestions();
+            }
+
+            addQuestionBtn.addEventListener('click', addNewQuestionBlock);
+
+            questionsContainer.addEventListener('click', function (e) {
+                if (e.target.classList.contains('remove-question')) {
+                    e.target.closest('.question-block').remove();
+                    renumberManualQuestions();
+                }
+            });
+
+            function renumberManualQuestions() {
+                const allQuestionBlocks = questionsContainer.querySelectorAll('.question-block');
+                allQuestionBlocks.forEach((block, index) => {
+                    const questionId = index + 1;
+                    block.querySelector('h3').textContent = `Manual Question ${questionId}`;
+                    const radioButtons = block.querySelectorAll('input[type="radio"]');
+                    radioButtons.forEach(radio => {
+                        radio.name = `correct_answer_q${questionId}`;
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>
