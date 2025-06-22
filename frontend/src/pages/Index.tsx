@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Plus, Play } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [sessionCode, setSessionCode] = useState('');
@@ -18,7 +19,8 @@ const Index = () => {
   };
 
   const handleCreateQuiz = () => {
-    navigate('/create');
+    toast.success('Currently not available');
+    // navigate('/create');
   };
 
   return (
