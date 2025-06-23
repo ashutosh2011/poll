@@ -45,7 +45,7 @@ def _get_broadcast_payload(session, audience_count):
         
         # Create a copy of options and shuffle them for random ordering
         shuffled_options = question_data["options"].copy()
-        random.shuffle(shuffled_options)
+        # random.shuffle(shuffled_options)
         
         payload.update({
             "question": question_data["text"],
