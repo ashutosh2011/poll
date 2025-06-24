@@ -29,6 +29,17 @@ class ConnectionManager:
                 del self.active_connections[session_code]
         print(f"Connection {player_id} closed in room: {session_code}.")
 
+    def update_player_connection(self, session_code: str, old_player_id: str, new_player_id: str):
+        """Updates the connection mapping when a player reconnects with a new ID."""
+        if (session_code in self.active_connections and 
+            old_player_id in self.active_connections[session_code] and
+            new_player_id in self.active_connections[session_code]):
+            
+            # Move the connection from old ID to new ID
+            self.active_connections[session_code][new_player_id] = self.active_connections[session_code][old_player_id]
+            del self.active_connections[session_code][old_player_id]
+            print(f"Updated connection mapping: {old_player_id} -> {new_player_id} in room: {session_code}")
+
     async def broadcast(self, session_code: str, message: dict):
         """Broadcasts a message to all clients in a session."""
         if session_code in self.active_connections:

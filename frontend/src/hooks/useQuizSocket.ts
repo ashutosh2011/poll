@@ -19,15 +19,13 @@ export const useQuizSocket = (sessionCode: string, nickname?: string) => {
   const [state, setState] = useState<QuizState | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
 
   const connect = useCallback(() => {
     try {
-      // const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      // const wsUrl = `${protocol}//${window.location.host}/ws/${sessionCode}`;
-      
       const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/${sessionCode}`;
 
       console.log('Connecting to WebSocket:', wsUrl);
@@ -37,6 +35,7 @@ export const useQuizSocket = (sessionCode: string, nickname?: string) => {
         console.log('WebSocket connected');
         setIsConnected(true);
         setError(null);
+        setJoinError(null);
         reconnectAttempts.current = 0;
         
         // Send join message
@@ -48,7 +47,15 @@ export const useQuizSocket = (sessionCode: string, nickname?: string) => {
       ws.current.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received state update:', data);
+          console.log('Received message:', data);
+          
+          // Handle join errors
+          if (data.type === 'join_error') {
+            setJoinError(data.message);
+            return;
+          }
+          
+          // Handle regular state updates
           setState(data);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -120,6 +127,7 @@ export const useQuizSocket = (sessionCode: string, nickname?: string) => {
     state,
     isConnected,
     error,
+    joinError,
     startQuiz,
     showResults,
     nextQuestion,

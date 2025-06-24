@@ -17,6 +17,7 @@ class Player(TypedDict):
     score: int
     voted_question: int # The index of the last question the player voted on
     votes: Dict[int, PlayerVote]  # Maps question index to vote details
+    online: bool  # Whether the player is currently connected
 
 class Question(TypedDict):
     text: str

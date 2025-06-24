@@ -33,10 +33,13 @@ async def _timer_task(session_code: str, question_index: int):
 
 def _get_broadcast_payload(session, audience_count):
     """Constructs the payload for broadcasting."""
+    # Only count online players
+    online_players = {pid: p for pid, p in session["players"].items() if p.get("online", False)}
+    
     payload = {
-        "audience_count": audience_count,
+        "audience_count": len(online_players),
         "state": session["state"],
-        "players": {p["nickname"]: {"score": p["score"]} for p in session["players"].values()}
+        "players": {p["nickname"]: {"score": p["score"]} for p in online_players.values()}
     }
 
     if session["state"] in ["QUESTION", "RESULTS"]:
@@ -60,7 +63,7 @@ def _get_broadcast_payload(session, audience_count):
         payload.update({
             "results": session["questions"][q_index]["answers"],
             "correct_answer": session["questions"][q_index]["correct_answer"],
-            "scores": {p["nickname"]: {"score": p["score"]} for p in session["players"].values()}
+            "scores": {p["nickname"]: {"score": p["score"]} for p in online_players.values()}
         })
     
     return payload
@@ -116,14 +119,52 @@ async def process_event(session_code: str, player_id: str, data: str):
     # Event Handling
     if event_type == "join":
         nickname = event.get("nickname", "Anonymous")
-        if nickname == 'Presenter' or session.get("presenter") is None:
-            session["presenter"] = player_id
-        session["players"][player_id] = {
-            "nickname": nickname, 
-            "score": 0, 
-            "voted_question": -1,
-            "votes": {}
-        }
+        
+        # Check if this username is already online
+        online_player_id = None
+        for pid, player_data in session["players"].items():
+            if player_data["nickname"] == nickname and player_data.get("online", False):
+                online_player_id = pid
+                break
+        
+        if online_player_id:
+            # Username is already online - send error message
+            await manager._safe_send(manager.active_connections[session_code][player_id], {
+                "type": "join_error",
+                "message": "You are already joined from another device. Please disconnect from the other device first."
+            }, player_id)
+            return
+        
+        # Check if this username exists but is offline (reconnection)
+        offline_player_id = None
+        for pid, player_data in session["players"].items():
+            if player_data["nickname"] == nickname and not player_data.get("online", False):
+                offline_player_id = pid
+                break
+        
+        if offline_player_id:
+            # This is a reconnection - restore the player's data
+            session["players"][player_id] = session["players"][offline_player_id]
+            session["players"][player_id]["online"] = True
+            del session["players"][offline_player_id]
+            
+            # Update presenter reference if needed
+            if session.get("presenter") == offline_player_id:
+                session["presenter"] = player_id
+            
+            print(f"Player {nickname} reconnected successfully. Restored from offline player ID: {offline_player_id}")
+        else:
+            # This is a new player
+            if nickname == 'Presenter' or session.get("presenter") is None:
+                session["presenter"] = player_id
+            session["players"][player_id] = {
+                "nickname": nickname, 
+                "score": 0, 
+                "voted_question": -1,
+                "votes": {},
+                "online": True
+            }
+            print(f"New player {nickname} joined with ID: {player_id}")
 
     elif is_presenter:
         # Cancel timer if presenter manually advances state
@@ -198,8 +239,9 @@ async def handle_disconnect(session_code: str, player_id: str):
         del timer_tasks[session_code]
 
     manager.disconnect(session_code, player_id)
-    if session:
-        if player_id in session["players"]:
-            del session["players"][player_id]
+    if session and player_id in session["players"]:
+        # Mark player as offline instead of removing them
+        session["players"][player_id]["online"] = False
+        print(f"Player {session['players'][player_id]['nickname']} marked as offline")
         await storage.save_session(session_code, session)
         await broadcast_state(session_code) 

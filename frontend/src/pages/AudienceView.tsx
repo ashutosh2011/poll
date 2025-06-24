@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuizSocket } from '@/hooks/useQuizSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +10,20 @@ import { useEffect, useState } from 'react';
 const AudienceView = () => {
   const { sessionCode } = useParams<{ sessionCode: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const nickname = searchParams.get('nickname') || 'Anonymous';
-  const { state, isConnected, error, vote } = useQuizSocket(sessionCode!, nickname);
+  const { state, isConnected, error, joinError, vote } = useQuizSocket(sessionCode!, nickname);
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  // Handle join errors - redirect to home
+  useEffect(() => {
+    if (joinError) {
+      alert(joinError);
+      navigate('/');
+    }
+  }, [joinError, navigate]);
 
   // Reset voting state when question changes
   useEffect(() => {

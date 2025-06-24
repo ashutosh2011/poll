@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuizSocket } from '@/hooks/useQuizSocket';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +9,17 @@ import { useEffect, useState } from 'react';
 
 const PresenterView = () => {
   const { sessionCode } = useParams<{ sessionCode: string }>();
-  const { state, isConnected, error, startQuiz, showResults, nextQuestion } = useQuizSocket(sessionCode!, 'Presenter');
+  const navigate = useNavigate();
+  const { state, isConnected, error, joinError, startQuiz, showResults, nextQuestion } = useQuizSocket(sessionCode!, 'Presenter');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  // Handle join errors - redirect to home
+  useEffect(() => {
+    if (joinError) {
+      alert(joinError);
+      navigate('/');
+    }
+  }, [joinError, navigate]);
 
   // Timer countdown effect
   useEffect(() => {
