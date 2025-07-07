@@ -25,7 +25,7 @@ const Index = () => {
   };
 
   const handlePassphraseSubmit = () => {
-    if (passphrase === 'ashutoshismypapa') {
+    if (passphrase === 'quizlive') {
       setIsDialogOpen(false);
       setPassphrase('');
       navigate('/create');
